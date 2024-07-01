@@ -139,3 +139,17 @@ class ProveedoresBD():
         
         except sqlite3.Connection.Error as error:
             print("Error al conectar a la base de datos", error)
+
+    def actualizarProveedor(self, id, descuento, campo):
+        try:
+            conn, cursor = self.conexion()
+            query = f"UPDATE proveedor SET {campo} = ? WHERE id = ?"
+            cursor.execute(query, (descuento, id))
+            conn.commit()
+
+        except sqlite3.Error as error:
+            print("Error al actualizar proveedor", error)
+        
+        finally: 
+            if self.conexion:
+                self.cerrarConexion(conn, cursor)

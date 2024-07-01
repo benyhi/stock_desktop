@@ -269,7 +269,7 @@ class VentanaConfiguraciones(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.setGeometry(150,150,300,400)
-        self.setWindowTitle("Actualizar un articulo")
+        self.setWindowTitle("Configuraciones")
         self.initUi()
 
     def initUi(self): 
@@ -280,20 +280,43 @@ class VentanaConfiguraciones(QtWidgets.QWidget):
         labelTitulo3 = QtWidgets.QLabel("Ganancia")
         botonGuardar = QtWidgets.QPushButton("Guardar")
         self.layout.addWidget(labelTitulo1,0,0)
-        self.layout.addWidget(labelTitulo2,1,0)
-        self.layout.addWidget(labelTitulo3,2,0)
-        # self.layout.addWidget(botonGuardar,)
+        self.layout.addWidget(labelTitulo2,0,1)
+        self.layout.addWidget(labelTitulo3,0,2)
+        # self.layout.addWidget(botonGuardar,4,2)
         self.initProveedores()
     
     def initProveedores(self):
         bd = ProveedoresBD()
         proveedores = bd.obtenerProveedores()
         for fila , datos in enumerate(proveedores): 
-            for columna, dato in enumerate(datos):
-                labelProveedor = QtWidgets.QLabel(str(dato))
-                self.layout.addWidget(labelProveedor, fila, columna)
+            id = datos[0]
+            nombre = datos[1]
+            descuento = datos[3]
+            ganancia = None
 
+            labelNombre = QtWidgets.QLabel(str(nombre))
+            labelDescuento = QtWidgets.QLineEdit(str(descuento))
+            labelGanancia = QtWidgets.QLineEdit(str(ganancia))
 
+            labelDescuento.editingFinished.connect(lambda nuevoDes = labelDescuento, pid = id: self.actualizarConfigProv(nuevoDes, pid))
+            labelGanancia.editingFinished.connect(lambda nuevoGan = labelGanancia, pid = id: self.actualizarConfigProv(pid))
+
+            self.layout.addWidget(labelNombre, fila + 1, 0)
+            self.layout.addWidget(labelDescuento, fila + 1, 1)
+            self.layout.addWidget(labelGanancia, fila + 1, 2)
+    
+    def actualizarConfigProv(self, lineEdit, id):
+        nuevoValor = lineEdit.text()
+        bd = ProveedoresBD()
+        
+        if lineEdit.objectName() == "labelDescuento":
+            bd.actualizarProveedor(id, nuevoValor, "descuento")
+        elif lineEdit.objectName() == "labelGanancia":
+            bd.actualizarProveedor(id, nuevoValor, "ganancia")
+''
+       
+
+        
 
 
 if __name__ == "__main__":
