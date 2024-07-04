@@ -12,6 +12,7 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         self.ventanaAgregar = None
         self.ventanaEditar = None
         self.ventanaConfiguraciones = None
+        self.ventanaSubirLista = None
 
     def initUI(self):
         contenidoPrincipal = QtWidgets.QWidget(self)
@@ -20,8 +21,10 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         contenidoPrincipal.setLayout(self.layout)
         btnAgregar = QtWidgets.QPushButton("Agregar Articulo")
         btnConfiguraciones = QtWidgets.QPushButton("Configuraciones")
+        btnSubirLista = QtWidgets.QPushButton("Subir lista")
         btnAgregar.clicked.connect(self.agregarArticulo)
         btnConfiguraciones.clicked.connect(self.configuraciones)
+        btnSubirLista.clicked.connect(self.subirLista)
         labelBarraBusqueda = QtWidgets.QLabel("Buscar")
         labelBarraBusqueda.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
         self.layout.addWidget(labelBarraBusqueda,0,1)
@@ -30,6 +33,7 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         self.barraBusqueda.textChanged.connect(self.filtroDeBusqueda)
         self.layout.addWidget(btnAgregar, 2,0)
         self.layout.addWidget(btnConfiguraciones, 2,2) 
+        self.layout.addWidget(btnSubirLista, 2,1)
         self.crearTabla()
 
     def crearTabla(self):
@@ -46,6 +50,10 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         bd = ArticulosBD()
         lista_de_datos = bd.obtenerDatos()
         self.tabla.setRowCount(len(lista_de_datos))
+
+        bd = ProveedoresBD()
+        proveedores = bd.obtenerProveedores()
+
         for fila , datos in enumerate(lista_de_datos): 
             for columna, dato in enumerate(datos):
                 item = QtWidgets.QTableWidgetItem(str(dato))
@@ -60,6 +68,15 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
                 layoutBotones.addWidget(btnEditar)
                 layoutBotones.addWidget(btnEliminar)
                 self.tabla.setCellWidget(fila, 8, btnContenedor)
+
+            for prov in proveedores:
+                descuento = prov[3]/100
+                ganancia = prov[4]/100
+                precio_neto = datos[6]
+                precioP = precio_neto - (precio_neto*descuento) + (precio_neto*ganancia)
+                item = QtWidgets.QTableWidgetItem(str(precioP))
+                self.tabla.setItem(fila,7,item)
+
         self.tabla.hideColumn(0)
 
     def filtroDeBusqueda(self):
@@ -81,6 +98,10 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
         self.ventanaConfiguraciones = VentanaConfiguraciones()
         self.ventanaConfiguraciones.show()
 
+    def subirLista(self):
+        self.ventanaSubirLista = SubirLista()
+        self.ventanaSubirLista.show()
+
     def eliminarArticulo(self):
         boton = self.sender()
         textoBoton = boton.text()
@@ -91,7 +112,6 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
             if confirmacion == QtWidgets.QMessageBox.Yes:
                 bd = ArticulosBD()
                 bd.eliminarDato(id_articulo)
-                print(id_articulo)
                 self.tabla.removeRow(fila)
             else:
                 pass
@@ -99,25 +119,23 @@ class VentanaPrincipal(QtWidgets.QMainWindow):
     def editarArticulo(self):
         boton = self.sender()
         textoBoton = boton.text()
-        print(boton, textoBoton)
         if isinstance(boton, BotonTabla) and textoBoton == "Editar":
             fila = boton.row
             id_articulo = self.tabla.item(fila, 0).text()
             self.ventanaEditar = VentanaEditar(id_articulo)
             self.ventanaEditar.show()
 
-
-
-#CLASES AUXILIARES
-
+##############################################################################################
+#CLASES AUXILIARES############################################################################
+##############################################################################################
 #ESTO ES UNA SUBCLASE DE QPUSHBUTTON, QUE CONTIENE UN ATRIBUTO ADICIONAL EN EL CONSTRUCTOR,
 #PARA QUE CADA BOTON ALMACENE EL VALOR DE LA FILA EN LA QUE ESTA (SIRVE PARA TABLAS).
-
+##############################################################################################
 class BotonTabla(QtWidgets.QPushButton):
     def __init__(self, text, row, parent=None):
         super().__init__(text, parent)
         self.row = row
-
+##############################################################################################
 
 class VentanaEditar(QtWidgets.QWidget):
     def __init__(self, id_articulo):
@@ -202,8 +220,6 @@ class VentanaEditar(QtWidgets.QWidget):
         self.close()
         ventanaprincipal.agregarDatosTabla()
         print(dic)
-
-
 
 class VentanaAgregar(QtWidgets.QWidget):
     def __init__(self):
@@ -292,31 +308,45 @@ class VentanaConfiguraciones(QtWidgets.QWidget):
             id = datos[0]
             nombre = datos[1]
             descuento = datos[3]
-            ganancia = None
+            ganancia = datos[4]
 
             labelNombre = QtWidgets.QLabel(str(nombre))
             labelDescuento = QtWidgets.QLineEdit(str(descuento))
             labelGanancia = QtWidgets.QLineEdit(str(ganancia))
 
-            labelDescuento.editingFinished.connect(lambda nuevoDes = labelDescuento, pid = id: self.actualizarConfigProv(nuevoDes, pid))
-            labelGanancia.editingFinished.connect(lambda nuevoGan = labelGanancia, pid = id: self.actualizarConfigProv(pid))
+            labelDescuento.editingFinished.connect(lambda nuevoDes = labelDescuento, campo ="descuento", pid = id: self.actualizarConfigProv(nuevoDes, campo, pid))
+            labelGanancia.editingFinished.connect(lambda nuevoGan = labelGanancia, campo ="ganancia", pid = id: self.actualizarConfigProv(nuevoGan, campo, pid))
 
             self.layout.addWidget(labelNombre, fila + 1, 0)
             self.layout.addWidget(labelDescuento, fila + 1, 1)
             self.layout.addWidget(labelGanancia, fila + 1, 2)
     
-    def actualizarConfigProv(self, lineEdit, id):
+    def actualizarConfigProv(self,lineEdit, campo, id):
         nuevoValor = lineEdit.text()
         bd = ProveedoresBD()
         
-        if lineEdit.objectName() == "labelDescuento":
+        if campo == "descuento":
             bd.actualizarProveedor(id, nuevoValor, "descuento")
-        elif lineEdit.objectName() == "labelGanancia":
+        elif campo == "ganancia":
             bd.actualizarProveedor(id, nuevoValor, "ganancia")
-''
-       
 
-        
+class SubirLista(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setGeometry(150,150,300,400)
+        self.setWindowTitle("Subir lista")
+        self.initUi()
+
+    def initUi(self): 
+        self.layout = QtWidgets.QVBoxLayout()
+        self.setLayout(self.layout)
+        boton_abrir = QtWidgets.QPushButton("Subir lista")
+        boton_abrir.clicked.connect(self.abrirArchivo)
+        self.layout.addWidget(boton_abrir)
+    def abrirArchivo(self):
+        archivo = QtWidgets.QFileDialog.getOpenFileName(self, "Seleccionar Archivo")
+        if archivo:
+            print(f'Se seleccionó el archivo: {archivo}')
 
 
 if __name__ == "__main__":
