@@ -2,7 +2,7 @@ import sys
 from PyQt6 import QtCore, QtGui, QtWidgets
 from bd import ArticulosBD, ProveedoresBD
 from stock_ui import Ui_MainWindow
-from config_ui import Ui_Form as conf
+from config_ui import Ui_ventana_config as conf
 from ag_ed_ui import Ui_Form as ag
 import resources
 
@@ -18,9 +18,12 @@ class App(QtWidgets.QMainWindow):
         self.ui.pushButton_4.clicked.connect(lambda: self.cambiar_pagina(3))
         self.ui.pushButton_5.clicked.connect(lambda: self.cambiar_pagina(4))
         self.ui.pushButton_6.clicked.connect(self.agregarArticulo)
+        self.ui.pushButton_8.clicked.connect(self.configuracion)
         self.ui.buscar.textChanged.connect(self.filtroDeBusqueda)
 
         self.agregarDatosTabla()
+        
+
         
     def cambiar_pagina(self, indice):
         self.ui.stackedWidget.setCurrentIndex(indice)
@@ -53,12 +56,19 @@ class App(QtWidgets.QMainWindow):
                     self.ui.tableWidget.setCellWidget(fila, 8, btnContenedor)
 
             for prov in proveedores:
-                descuento = prov[3]/100
-                ganancia = prov[4]/100
-                precio_neto = datos[6]
-                precioP = precio_neto - (precio_neto*descuento) + (precio_neto*ganancia)
-                item = QtWidgets.QTableWidgetItem(str(precioP))
-                self.ui.tableWidget.setItem(fila,7,item)
+                descuento = prov[3] if prov[3] not in (None, 0) else 1
+                ganancia = prov[4] if prov[4] not in (None, 0) else 1
+                precio_neto = datos[6] if datos[6] not in (None, 0) else 1
+
+                if descuento == 0 and ganancia == 0:
+                    precioP = 1
+                    item = QtWidgets.QTableWidgetItem(str(precioP))
+                    self.ui.tableWidget.setItem(fila,7,item)
+                
+                else:
+                    precioP = precio_neto - (precio_neto*(descuento/100)) + (precio_neto*(ganancia/100))
+                    item = QtWidgets.QTableWidgetItem(str(precioP))
+                    self.ui.tableWidget.setItem(fila,7,item)
 
         self.ui.tableWidget.setColumnHidden(0,True)
         print("Datos de la tabla actualizados...")
@@ -104,6 +114,10 @@ class App(QtWidgets.QMainWindow):
 
             else:
                 pass
+    
+    def configuracion(self):
+        self.config = Configuracion()
+        self.config.show()
 
 class BotonTabla(QtWidgets.QPushButton):
     def __init__(self, text, row, parent=None):
@@ -196,11 +210,52 @@ class VentanaAgregar(QtWidgets.QWidget):
         msg_box.setWindowTitle("Error de Base de Datos")
         msg_box.exec()
 
+class Configuracion(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+        self.ui = conf()
+        self.ui.setupUi(self)
+        self.initProveedores()
+
+        self.ui.pushButton_guardar.clicked.connect(self.guardarCambios)
+        self.ui.pushButton_cancelar.clicked.connect(self.close)
+
+    def initProveedores(self):
+        bd = ProveedoresBD()
+        proveedores = bd.obtenerProveedores()
+        for fila , datos in enumerate(proveedores): 
+            id = datos[0]
+            nombre = datos[1]
+            descuento = datos[3]
+            ganancia = datos[4]
+
+            labelNombre = QtWidgets.QLabel(str(nombre))
+            labelDescuento = QtWidgets.QLineEdit(str(descuento))
+            labelGanancia = QtWidgets.QLineEdit(str(ganancia))
+
+            labelDescuento.editingFinished.connect(lambda nuevoDes = labelDescuento, campo ="descuento", pid = id: self.actualizarConfigProv(nuevoDes, campo, pid))
+            labelGanancia.editingFinished.connect(lambda nuevoGan = labelGanancia, campo ="ganancia", pid = id: self.actualizarConfigProv(nuevoGan, campo, pid))
+
+            self.ui.gridLayout.addWidget(labelNombre, fila + 1, 0)
+            self.ui.gridLayout.addWidget(labelDescuento, fila + 1, 1)
+            self.ui.gridLayout.addWidget(labelGanancia, fila + 1, 2)
+    
+    def actualizarConfigProv(self,lineEdit, campo, id):
+        nuevoValor = lineEdit.text()
+        bd = ProveedoresBD()
+        
+        if campo == "descuento":
+            bd.actualizarProveedor(id, nuevoValor, "descuento")
+        elif campo == "ganancia":
+            bd.actualizarProveedor(id, nuevoValor, "ganancia")
+
+    def guardarCambios(self):
+        bd = ProveedoresBD()
+        self.close()
+        return print("Proveedores guardados...")
 
 
-
-
-
+        
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     window = App()
